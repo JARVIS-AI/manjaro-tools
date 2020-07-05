@@ -10,22 +10,20 @@
 # GNU General Public License for more details.
 
 write_machineid_conf(){
-    local conf="${modules_dir}/machineid.conf" switch='false'
+    local conf="${modules_dir}/machineid.conf"
     msg2 "Writing %s ..." "${conf##*/}"
     echo '---' > "$conf"
-    [[ ${initsys} == 'systemd' ]] && switch='true'
-    echo "systemd: ${switch}" >> $conf
+    echo "systemd: true" >> $conf
     echo "dbus: true" >> $conf
     echo "symlink: true" >> $conf
 }
 
 write_finished_conf(){
     msg2 "Writing %s ..." "finished.conf"
-    local conf="${modules_dir}/finished.conf" cmd="shutdown -r now"
+    local conf="${modules_dir}/finished.conf" cmd="systemctl reboot"
     echo '---' > "$conf"
     echo 'restartNowEnabled: true' >> "$conf"
     echo 'restartNowChecked: false' >> "$conf"
-    [[ ${initsys} == 'systemd' ]] && cmd="systemctl -i reboot"
     echo "restartNowCommand: \"${cmd}\"" >> "$conf"
 }
 
@@ -68,18 +66,6 @@ write_servicescfg_conf(){
     echo '' >> "$conf"
     echo 'services:' >> "$conf"
     echo '    enabled:' >> "$conf"
-    for s in ${enable_openrc[@]};do
-        echo "      - name: $s" >> "$conf"
-        echo '        runlevel: default' >> "$conf"
-    done
-    if [[ -n ${disable_openrc[@]} ]];then
-        echo '    disabled:' >> "$conf"
-        for s in ${disable_openrc[@]};do
-            echo "      - name: $s" >> "$conf"
-            echo '        runlevel: default' >> "$conf"
-            echo '' >> "$conf"
-        done
-    fi
 }
 
 write_services_conf(){
@@ -88,7 +74,7 @@ write_services_conf(){
     echo '---' >  "$conf"
     echo '' >> "$conf"
     echo 'services:' > "$conf"
-    for s in ${enable_systemd[@]};do
+    for s in ${enable_systemd[@]}; do
         echo "    - name: $s" >> "$conf"
         echo '      mandatory: false' >> "$conf"
         echo '' >> "$conf"
@@ -98,7 +84,7 @@ write_services_conf(){
     echo '      mandatory: true' >> "$conf"
     echo '' >> "$conf"
     echo 'disable:' >> "$conf"
-    for s in ${disable_systemd[@]};do
+    for s in ${disable_systemd[@]}; do
         echo "    - name: $s" >> "$conf"
         echo '      mandatory: false' >> "$conf"
         echo '' >> "$conf"
@@ -148,15 +134,17 @@ write_users_conf(){
     echo "---" > "$conf"
     echo "defaultGroups:" >> "$conf"
     local IFS=','
-    for g in ${addgroups[@]};do
+    for g in ${addgroups[@]}; do
         echo "    - $g" >> "$conf"
     done
     unset IFS
     echo "autologinGroup:  autologin" >> "$conf"
-    echo "doAutologin:     ${autologin}" >> "$conf"
+    echo "doAutologin:     false" >> "$conf" # can be either 'true' or 'false'
     echo "sudoersGroup:    wheel" >> "$conf"
-    echo "setRootPassword: false" >> "$conf"
-    echo "availableShells: /bin/bash, /bin/zsh" >> "$conf"
+    echo "setRootPassword: true" >> "$conf" # must be true, else some options get hidden
+    echo "doReusePassword: false" >> "$conf" # only used in old 'users' module
+    echo "availableShells: /bin/bash, /bin/zsh" >> "$conf" # only used in new 'users' module
+    echo "avatarFilePath:  ~/.face" >> "$conf" # mostly used file-name for avatar
 }
 
 write_packages_conf(){
@@ -164,6 +152,8 @@ write_packages_conf(){
     msg2 "Writing %s ..." "${conf##*/}"
     echo "---" > "$conf"
     echo "backend: pacman" >> "$conf"
+    echo '' >> "$conf"
+    echo "update_db: true" >> "$conf"
 }
 
 write_welcome_conf(){
@@ -177,6 +167,7 @@ write_welcome_conf(){
     echo "requirements:" >> "$conf"
     echo "    requiredStorage:    7.9" >> "$conf"
     echo "    requiredRam:        1.0" >> "$conf"
+    echo "    internetCheckUrl:   https://manjaro.org" >> "$conf"
     echo "    check:" >> "$conf"
     echo "      - storage" >> "$conf"
     echo "      - ram" >> "$conf"
@@ -187,7 +178,7 @@ write_welcome_conf(){
     echo "      - storage" >> "$conf"
     echo "      - ram" >> "$conf"
     echo "      - root" >> "$conf"
-    if ${netinstall};then
+    if ${netinstall}; then
         echo "      - internet" >> "$conf"
     fi
 }
@@ -226,7 +217,7 @@ write_postcfg_conf(){
     echo "keyrings:" >> "$conf"
     echo "    - archlinux" >> "$conf"
     echo "    - manjaro" >> "$conf"
-    if [[ -n ${smb_workgroup} ]];then
+    if [[ -n ${smb_workgroup} ]]; then
         echo "" >> "$conf"
         echo "samba:" >> "$conf"
         echo "    - workgroup:  ${smb_workgroup}" >> "$conf"
@@ -235,14 +226,13 @@ write_postcfg_conf(){
 
 get_yaml(){
     local args=() yaml
-    if ${chrootcfg};then
-        args+=('chrootcfg')
+    if ${chrootcfg}; then
+        args+=("${profile}/chrootcfg")
     else
         args+=("${profile}/packages")
     fi
-    args+=("${initsys}")
-    [[ ${edition} == 'sonar' ]] && args+=("${edition}")
-    for arg in ${args[@]};do
+    args+=("systemd")
+    for arg in ${args[@]}; do
         yaml=${yaml:-}${yaml:+-}${arg}
     done
     echo "${yaml}.yaml"
@@ -255,23 +245,17 @@ write_netinstall_conf(){
     echo "groupsUrl: ${netgroups}/$(get_yaml)" >> "$conf"
 }
 
-write_plymouthcfg_conf(){
-    local conf="${modules_dir}/plymouthcfg.conf"
-    msg2 "Writing %s ..." "${conf##*/}"
-    echo "---" > "$conf"
-    echo "plymouth_theme: ${plymouth_theme}" >> "$conf"
-}
-
 write_locale_conf(){
     local conf="${modules_dir}/locale.conf"
     msg2 "Writing %s ..." "${conf##*/}"
     echo "---" > "$conf"
     echo "localeGenPath: /etc/locale.gen" >> "$conf"
-    if ${geoip};then
-        echo "geoipUrl: freegeoip.net" >> "$conf"
+    if ${geoip}; then
+        echo "geoipUrl: https://geoip.tools/v1" >> "$conf"
+        echo "geoipStyle: legacy" >> "$conf"
     else
-        echo "region: Europe" >> "$conf"
-        echo "zone: London" >> "$conf"
+        echo "region: America" >> "$conf"
+        echo "zone: New_York" >> "$conf"
     fi
 }
 
@@ -284,18 +268,26 @@ write_settings_conf(){
     echo "sequence:" >> "$conf"
     echo "    - show:" >> "$conf"
     echo "        - welcome" >> "$conf" && write_welcome_conf
-    echo "        - locale" >> "$conf" && write_locale_conf
-    echo "        - keyboard" >> "$conf"
+    if ${oem_used}; then
+        msg2 "Skipping to show locale and keyboard modules."
+    else
+        echo "        - locale" >> "$conf" && write_locale_conf
+        echo "        - keyboard" >> "$conf"
+    fi
     echo "        - partition" >> "$conf"
-    echo "        - users" >> "$conf" && write_users_conf
-    if ${netinstall};then
+    if ${oem_used}; then
+        msg2 "Skipping to show users module."
+    else
+        echo "        - users" >> "$conf" && write_users_conf
+    fi
+    if ${netinstall}; then
         echo "        - netinstall" >> "$conf" && write_netinstall_conf
     fi
     echo "        - summary" >> "$conf"
     echo "    - exec:" >> "$conf"
     echo "        - partition" >> "$conf"
     echo "        - mount" >> "$conf"
-    if ${netinstall};then
+    if ${netinstall}; then
         if ${chrootcfg}; then
             echo "        - chrootcfg" >> "$conf"
             echo "        - networkcfg" >> "$conf"
@@ -310,32 +302,49 @@ write_settings_conf(){
     fi
     echo "        - machineid" >> "$conf" && write_machineid_conf
     echo "        - fstab" >> "$conf"
-    echo "        - locale" >> "$conf"
-    echo "        - keyboard" >> "$conf"
-    echo "        - localecfg" >> "$conf"
+    if ${oem_used}; then
+        msg2 "Skipping to set locale, keyboard and localecfg modules."
+    else
+        echo "        - locale" >> "$conf"
+        echo "        - keyboard" >> "$conf"
+        echo "        - localecfg" >> "$conf"
+    fi
     echo "        - luksopenswaphookcfg" >> "$conf"
     echo "        - luksbootkeyfile" >> "$conf"
-    echo "        - plymouthcfg" >> "$conf" && write_plymouthcfg_conf
     echo "        - initcpiocfg" >> "$conf"
     echo "        - initcpio" >> "$conf" && write_initcpio_conf
-    echo "        - users" >> "$conf"
+    if ${oem_used}; then
+        msg2 "Skipping to set users module."
+        echo "        - oemuser" >> "$conf"
+    else
+        echo "        - users" >> "$conf"
+    fi
     echo "        - displaymanager" >> "$conf" && write_displaymanager_conf
-    echo "        - mhwdcfg" >> "$conf" && write_mhwdcfg_conf
+    if ${mhwd_used}; then
+        echo "        - mhwdcfg" >> "$conf" && write_mhwdcfg_conf
+    else
+        msg2 "Skipping to set mhwdcfg module."
+    fi
     echo "        - hwclock" >> "$conf"
-    case ${initsys} in
-        'systemd') echo "        - services" >> "$conf" && write_services_conf ;;
-        'openrc') echo "        - servicescfg" >> "$conf" && write_servicescfg_conf ;;
-    esac
+    echo "        - services" >> "$conf" && write_services_conf
     echo "        - grubcfg" >> "$conf"
     echo "        - bootloader" >> "$conf" && write_bootloader_conf
-    echo "        - postcfg" >> "$conf" && write_postcfg_conf
+    if ${oem_used}; then
+        msg2 "Skipping to set postcfg module."
+    else
+        echo "        - postcfg" >> "$conf" && write_postcfg_conf
+    fi
     echo "        - umount" >> "$conf"
     echo "    - show:" >> "$conf"
     echo "        - finished" >> "$conf" && write_finished_conf
     echo '' >> "$conf"
     echo "branding: ${iso_name}" >> "$conf"
     echo '' >> "$conf"
-    echo "prompt-install: false" >> "$conf"
+    if ${oem_used}; then
+        echo "prompt-install: false" >> "$conf"
+    else
+        echo "prompt-install: true" >> "$conf"
+    fi
     echo '' >> "$conf"
     echo "dont-chroot: false" >> "$conf"
 }
@@ -370,12 +379,11 @@ check_yaml(){
 
 write_calamares_yaml(){
     configure_calamares "${yaml_dir}"
-    local yf
     if ${validate}; then
         for conf in "${yaml_dir}"/etc/calamares/modules/*.conf "${yaml_dir}"/etc/calamares/settings.conf; do
             check_yaml "$conf"
         done
-	fi
+    fi
 }
 
 write_netgroup_yaml(){
@@ -385,11 +393,12 @@ write_netgroup_yaml(){
     echo "  description: '$1'" >> "$2"
     echo "  selected: false" >> "$2"
     echo "  hidden: false" >> "$2"
+    echo "  critical: false" >> "$2"
     echo "  packages:" >> "$2"
-    for p in ${packages[@]};do
+    for p in ${packages[@]}; do
         echo "       - $p" >> "$2"
     done
-	${validate} && check_yaml "$2"
+    ${validate} && check_yaml "$2"
 }
 
 write_pacman_group_yaml(){
@@ -402,9 +411,9 @@ write_pacman_group_yaml(){
 
 prepare_check(){
     profile=$1
-    edition=$(get_edition ${profile})
+    local edition=$(get_edition ${profile})
     profile_dir=${run_dir}/${edition}/${profile}
-    check_profile
+    check_profile "${profile_dir}"
     load_profile_config "${profile_dir}/profile.conf"
 
     yaml_dir=${cache_dir_netinstall}/${profile}/${target_arch}
@@ -414,7 +423,7 @@ prepare_check(){
 }
 
 gen_fn(){
-    echo "${yaml_dir}/$1-${target_arch}-${initsys}.yaml"
+    echo "${yaml_dir}/$1-${target_arch}-systemd.yaml"
 }
 
 make_profile_yaml(){

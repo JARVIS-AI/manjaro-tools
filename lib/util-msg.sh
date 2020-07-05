@@ -95,7 +95,7 @@ die() {
 }
 
 import(){
-    if [[ -r $1 ]];then
+    if [[ -r $1 ]]; then
         source $1
     else
         die "Could not import $1"

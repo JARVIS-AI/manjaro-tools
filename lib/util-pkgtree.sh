@@ -37,8 +37,8 @@ clone_tree(){
 
 sync_tree_manjaro(){
     cd ${tree_dir}
-        for repo in ${repo_tree[@]};do
-            if [[ -d packages-${repo} ]];then
+        for repo in ${repo_tree[@]}; do
+            if [[ -d packages-${repo} ]]; then
                 cd packages-${repo}
                     sync_tree "${repo}"
                 cd ..
@@ -52,8 +52,8 @@ sync_tree_manjaro(){
 sync_tree_abs(){
     local repo_tree_abs=('packages' 'community')
     cd ${tree_dir_abs}
-        for repo in ${repo_tree_abs[@]};do
-            if [[ -d ${repo} ]];then
+        for repo in ${repo_tree_abs[@]}; do
+            if [[ -d ${repo} ]]; then
                 cd ${repo}
                     sync_tree "${repo}"
                 cd ..

@@ -10,9 +10,9 @@
 # GNU General Public License for more details.
 
 copy_overlay(){
-    if [[ -e $1 ]];then
+    if [[ -e $1 ]]; then
         msg2 "Copying [%s] ..." "${1##*/}"
-        if [[ -L $1 ]];then
+        if [[ -L $1 ]]; then
             cp -a --no-preserve=ownership $1/* $2
         else
             cp -LR $1/* $2
@@ -20,44 +20,8 @@ copy_overlay(){
     fi
 }
 
-track_img() {
-    info "mount: [%s]" "$2"
-    mount "$@" && IMG_ACTIVE_MOUNTS=("$2" "${IMG_ACTIVE_MOUNTS[@]}")
-}
-
-mount_img() {
-    IMG_ACTIVE_MOUNTS=()
-    mkdir -p "$2"
-    track_img "$1" "$2"
-}
-
-umount_img() {
-    if [[ -n ${IMG_ACTIVE_MOUNTS[@]} ]];then
-        info "umount: [%s]" "${IMG_ACTIVE_MOUNTS[@]}"
-        umount "${IMG_ACTIVE_MOUNTS[@]}"
-        unset IMG_ACTIVE_MOUNTS
-        rm -r "$1"
-    fi
-}
-
-# has_plymouth(){
-#     if $(chroot "$1" which plymouth);then
-#         return 0
-#     else
-#         return 1
-#     fi
-# }
-
-configure_plymouth(){
-    if [[ -f "$1"/usr/bin/plymouth ]];then
-        msg2 "Configuring plymouth: %s" "${plymouth_theme}"
-        local conf=$1/etc/plymouth/plymouthd.conf
-        sed -i -e "s/^.*Theme=.*/Theme=${plymouth_theme}/" "${conf}"
-    fi
-}
-
 add_svc_rc(){
-    if [[ -f $1/etc/init.d/$2 ]];then
+    if [[ -f $1/etc/init.d/$2 ]]; then
         msg2 "Setting %s ..." "$2"
         chroot $1 rc-update add $2 default &>/dev/null
     fi
@@ -65,14 +29,14 @@ add_svc_rc(){
 
 add_svc_sd(){
     if [[ -f $1/etc/systemd/system/$2.service ]] || \
-    [[ -f $1/usr/lib/systemd/system/$2.service ]];then
+    [[ -f $1/usr/lib/systemd/system/$2.service ]]; then
         msg2 "Setting %s ..." "$2"
         chroot $1 systemctl enable $2 &>/dev/null
     fi
 }
 
 set_xdm(){
-    if [[ -f $1/etc/conf.d/xdm ]];then
+    if [[ -f $1/etc/conf.d/xdm ]]; then
         local conf='DISPLAYMANAGER="'${displaymanager}'"'
         sed -i -e "s|^.*DISPLAYMANAGER=.*|${conf}|" $1/etc/conf.d/xdm
     fi
@@ -81,11 +45,11 @@ set_xdm(){
 configure_mhwd_drivers(){
     local path=$1${mhwd_repo}/ \
         drv_path=$1/var/lib/mhwd/db/pci/graphic_drivers
-    info "Configuring mwwd db ..."
+    info "Configuring mhwd db ..."
     if  [ -z "$(ls $path | grep catalyst-utils 2> /dev/null)" ]; then
         msg2 "Disabling Catalyst driver"
         mkdir -p $drv_path/catalyst/
-        touch $drv_path/catalyst/MHWDCONFIG
+        echo "" > $drv_path/catalyst/MHWDCONFIG
     fi
     if  [ -z "$(ls $path | grep nvidia-utils 2> /dev/null)" ]; then
         msg2 "Disabling Nvidia driver"
@@ -93,40 +57,46 @@ configure_mhwd_drivers(){
         touch $drv_path/nvidia/MHWDCONFIG
         msg2 "Disabling Nvidia Bumblebee driver"
         mkdir -p $drv_path/hybrid-intel-nvidia-bumblebee/
-        touch $drv_path/hybrid-intel-nvidia-bumblebee/MHWDCONFIG
+        echo "" > $drv_path/hybrid-intel-nvidia-bumblebee/MHWDCONFIG
     fi
     if  [ -z "$(ls $path | grep nvidia-304xx-utils 2> /dev/null)" ]; then
         msg2 "Disabling Nvidia 304xx driver"
         mkdir -p $drv_path/nvidia-304xx/
-        touch $drv_path/nvidia-304xx/MHWDCONFIG
+        echo "" > $drv_path/nvidia-304xx/MHWDCONFIG
     fi
     if  [ -z "$(ls $path | grep nvidia-340xx-utils 2> /dev/null)" ]; then
         msg2 "Disabling Nvidia 340xx driver"
         mkdir -p $drv_path/nvidia-340xx/
-        touch $drv_path/nvidia-340xx/MHWDCONFIG
+        echo "" > $drv_path/nvidia-340xx/MHWDCONFIG
+        msg2 "Disabling Nvidia 340xx Bumblebee driver"
+        mkdir -p $drv_path/hybrid-intel-nvidia-340xx-bumblebee/
+        echo "" > $drv_path/hybrid-intel-nvidia-340xx-bumblebee/MHWDCONFIG
+    fi
+    if  [ -z "$(ls $path | grep nvidia-390xx-utils 2> /dev/null)" ]; then
+        msg2 "Disabling Nvidia 390xx driver"
+        mkdir -p $drv_path/nvidia-390xx/
+        echo "" > $drv_path/nvidia-390xx/MHWDCONFIG
+        msg2 "Disabling Nvidia 390xx Bumblebee driver"
+        mkdir -p $drv_path/hybrid-intel-nvidia-390xx-bumblebee/
+        echo "" > $drv_path/hybrid-intel-nvidia-390xx-bumblebee/MHWDCONFIG
     fi
     if  [ -z "$(ls $path | grep xf86-video-amdgpu 2> /dev/null)" ]; then
         msg2 "Disabling AMD gpu driver"
         mkdir -p $drv_path/xf86-video-amdgpu/
-        touch $drv_path/xf86-video-amdgpu/MHWDCONFIG
+        echo "" > $drv_path/xf86-video-amdgpu/MHWDCONFIG
+    fi
+    if  [ -z "$(ls $path | grep virtualbox-guest-modules 2> /dev/null)" ]; then
+        msg2 "Disabling VirtualBox guest driver"
+        mkdir -p $drv_path/virtualbox/
+        echo "" > $drv_path/virtualbox/MHWDCONFIG
     fi
 }
 
 configure_lsb(){
-    [[ -f $1/boot/grub/grub.cfg ]] && rm $1/boot/grub/grub.cfg
     if [ -e $1/etc/lsb-release ] ; then
         msg2 "Configuring lsb-release"
         sed -i -e "s/^.*DISTRIB_RELEASE.*/DISTRIB_RELEASE=${dist_release}/" $1/etc/lsb-release
         sed -i -e "s/^.*DISTRIB_CODENAME.*/DISTRIB_CODENAME=${dist_codename}/" $1/etc/lsb-release
-    fi
-}
-
-configure_mhwd(){
-    if [[ ${target_arch} == "x86_64" ]];then
-        if ! ${multilib};then
-            msg2 "Disable mhwd lib32 support"
-            echo 'MHWD64_IS_LIB32="false"' > $1/etc/mhwd-x86_64.conf
-        fi
     fi
 }
 
@@ -145,27 +115,14 @@ configure_journald(){
 }
 
 configure_services(){
-    info "Configuring [%s]" "${initsys}"
-    case ${initsys} in
-        'openrc')
-            for svc in ${enable_openrc[@]}; do
-                [[ $svc == "xdm" ]] && set_xdm "$1"
-                add_svc_rc "$1" "$svc"
-            done
-            for svc in ${enable_openrc_live[@]}; do
-                add_svc_rc "$1" "$svc"
-            done
-        ;;
-        'systemd')
-            for svc in ${enable_systemd[@]}; do
-                add_svc_sd "$1" "$svc"
-            done
-            for svc in ${enable_systemd_live[@]}; do
-                add_svc_sd "$1" "$svc"
-            done
-        ;;
-    esac
-    info "Done configuring [%s]" "${initsys}"
+    info "Configuring services"
+    for svc in ${enable_systemd[@]}; do
+        add_svc_sd "$1" "$svc"
+    done
+    for svc in ${enable_systemd_live[@]}; do
+        add_svc_sd "$1" "$svc"
+    done
+    info "Done configuring services"
 }
 
 write_live_session_conf(){
@@ -189,7 +146,7 @@ write_live_session_conf(){
     echo '' >> ${conf}
     echo '# live group membership' >> ${conf}
     echo "addgroups='${addgroups}'" >> ${conf}
-    if [[ -n ${smb_workgroup} ]];then
+    if [[ -n ${smb_workgroup} ]]; then
         echo '' >> ${conf}
         echo '# samba workgroup' >> ${conf}
         echo "smb_workgroup=${smb_workgroup}" >> ${conf}
@@ -201,25 +158,16 @@ configure_hosts(){
 }
 
 configure_system(){
-    case ${initsys} in
-        'systemd')
-            configure_journald "$1"
-            configure_logind "$1"
+    configure_logind "$1"
+    configure_journald "$1"
 
-            # Prevent some services to be started in the livecd
-            echo 'File created by manjaro-tools. See systemd-update-done.service(8).' \
-            | tee "${path}/etc/.updated" >"${path}/var/.updated"
+    # Prevent some services to be started in the livecd
+    echo 'File created by manjaro-tools. See systemd-update-done.service(8).' \
+    | tee "${path}/etc/.updated" >"${path}/var/.updated"
 
-            msg2 "Disable systemd-gpt-auto-generator"
-            ln -sf /dev/null "${path}/usr/lib/systemd/system-generators/systemd-gpt-auto-generator"
-
-            echo ${hostname} > $1/etc/hostname
-        ;;
-        'openrc')
-            local hn='hostname="'${hostname}'"'
-            sed -i -e "s|^.*hostname=.*|${hn}|" $1/etc/conf.d/hostname
-        ;;
-    esac
+    msg2 "Disable systemd-gpt-auto-generator"
+    ln -sf /dev/null "${path}/usr/lib/systemd/system-generators/systemd-gpt-auto-generator"
+    echo ${hostname} > $1/etc/hostname
 }
 
 configure_thus(){
@@ -231,8 +179,8 @@ configure_thus(){
     echo "DISTRIBUTION_VERSION = \"${dist_release}\"" >> "$conf"
     echo "SHORT_NAME = \"${dist_name}\"" >> "$conf"
     echo "[install]" >> "$conf"
-    echo "LIVE_MEDIA_SOURCE = \"/bootmnt/${iso_name}/${target_arch}/root-image.sfs\"" >> "$conf"
-    echo "LIVE_MEDIA_DESKTOP = \"/bootmnt/${iso_name}/${target_arch}/desktop-image.sfs\"" >> "$conf"
+    echo "LIVE_MEDIA_SOURCE = \"/run/miso/bootmnt/${iso_name}/${target_arch}/rootfs.sfs\"" >> "$conf"
+    echo "LIVE_MEDIA_DESKTOP = \"/run/miso/bootmnt/${iso_name}/${target_arch}/desktopfs.sfs\"" >> "$conf"
     echo "LIVE_MEDIA_TYPE = \"squashfs\"" >> "$conf"
     echo "LIVE_USER_NAME = \"${username}\"" >> "$conf"
     echo "KERNEL = \"${kernel}\"" >> "$conf"
@@ -240,7 +188,7 @@ configure_thus(){
     echo "INITRAMFS = \"$(echo ${default_image} | sed s'|/boot/||')\"" >> "$conf"
     echo "FALLBACK = \"$(echo ${fallback_image} | sed s'|/boot/||')\"" >> "$conf"
 
-    if [[ -f $1/usr/share/applications/thus.desktop && -f $1/usr/bin/kdesu ]];then
+    if [[ -f $1/usr/share/applications/thus.desktop && -f $1/usr/bin/kdesu ]]; then
         sed -i -e 's|sudo|kdesu|g' $1/usr/share/applications/thus.desktop
     fi
 }
@@ -248,11 +196,8 @@ configure_thus(){
 configure_live_image(){
     msg "Configuring [livefs]"
     configure_hosts "$1"
-    configure_lsb "$1"
-    configure_mhwd "$1"
     configure_system "$1"
     configure_services "$1"
-    configure_plymouth "$1"
     configure_calamares "$1"
     [[ ${edition} == "sonar" ]] && configure_thus "$1"
     write_live_session_conf "$1"
@@ -290,13 +235,18 @@ chroot_create(){
         mkchroot ${mkchroot_args[*]} ${flag} $@
 }
 
+clean_iso_root(){
+    msg2 "Deleting isoroot [%s] ..." "${1##*/}"
+    rm -rf --one-file-system "$1"
+}
+
 chroot_clean(){
     msg "Cleaning up ..."
     for image in "$1"/*fs; do
         [[ -d ${image} ]] || continue
         local name=${image##*/}
-        if [[ $name != "mhwdfs" ]];then
-            msg2 "Deleting chroot [%s] ..." "$name"
+        if [[ $name != "mhwdfs" ]]; then
+            msg2 "Deleting chroot [%s] (%s) ..." "$name" "${1##*/}"
             lock 9 "${image}.lock" "Locking chroot '${image}'"
             if [[ "$(stat -f -c %T "${image}")" == btrfs ]]; then
                 { type -P btrfs && btrfs subvolume delete "${image}"; } #&> /dev/null
@@ -306,21 +256,26 @@ chroot_clean(){
     done
     exec 9>&-
     rm -rf --one-file-system "$1"
-    msg2 "Deleting isoroot [%s] ..." "${2##*/}"
-    rm -rf --one-file-system "$2"
 }
 
 clean_up_image(){
     msg2 "Cleaning [%s]" "${1##*/}"
 
     local path
-    if [[ ${1##*/} == 'mhwdfs' ]];then
+    if [[ ${1##*/} == 'mhwdfs' ]]; then
         path=$1/var
-        if [[ -d $path ]];then
+        if [[ -d $path/lib/mhwd ]]; then
+            mv $path/lib/mhwd $1 &> /dev/null
+        fi
+        if [[ -d $path ]]; then
             find "$path" -mindepth 0 -delete &> /dev/null
         fi
+        if [[ -d $1/mhwd ]]; then
+            mkdir -p $path/lib
+            mv $1/mhwd $path/lib &> /dev/null
+        fi
         path=$1/etc
-        if [[ -d $path ]];then
+        if [[ -d $path ]]; then
             find "$path" -mindepth 0 -delete &> /dev/null
         fi
     else
@@ -331,7 +286,7 @@ clean_up_image(){
             find "$path" -name 'initramfs*.img' -delete &> /dev/null
         fi
         path=$1/var/lib/pacman/sync
-        if [[ -d $path ]];then
+        if [[ -d $path ]]; then
             find "$path" -type f -delete &> /dev/null
         fi
         path=$1/var/cache/pacman/pkg
@@ -343,13 +298,17 @@ clean_up_image(){
             find "$path" -type f -delete &> /dev/null
         fi
         path=$1/var/tmp
-        if [[ -d $path ]];then
+        if [[ -d $path ]]; then
             find "$path" -mindepth 1 -delete &> /dev/null
         fi
         path=$1/tmp
-        if [[ -d $path ]];then
+        if [[ -d $path ]]; then
             find "$path" -mindepth 1 -delete &> /dev/null
         fi
     fi
 	find "$1" -name *.pacnew -name *.pacsave -name *.pacorig -delete
+	file=$1/boot/grub/grub.cfg
+        if [[ -f "$file" ]]; then
+            rm $file
+        fi
 }

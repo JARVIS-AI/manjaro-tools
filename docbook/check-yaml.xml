@@ -82,12 +82,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
             </varlistentry>
 
             <varlistentry>
-                <term><option>-i systemd|openrc</option></term>
-
-                <listitem><para>The init system the yaml will be created for.</para></listitem>
-            </varlistentry>
-
-            <varlistentry>
                 <term><option>-k linuxXXX</option></term>
 
                 <listitem><para>The kernel the yaml will be created for.</para></listitem>

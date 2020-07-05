@@ -46,10 +46,10 @@ chroot_part_mount() {
 
 select_os(){
         local os_list=( $(detect) ) count=${#os_list[@]}
-    if [[ ${count} > 1 ]];then
+    if [[ ${count} > 1 ]]; then
                 msg "Detected systems:"
                 local i=0
-                for os in ${os_list[@]};do
+                for os in ${os_list[@]}; do
             local last=${os##*:}
             case $last in
                 'efi') count=$((count-1)) ;;
@@ -66,7 +66,7 @@ select_os(){
     type=$os_str
     root=${os_str%%:*}
     type=${type##*:}
-        if [[ "${type##*:}" == 'linux' ]];then
+        if [[ "${type##*:}" == 'linux' ]]; then
         msg "Mounting (%s) [%s]" "$(get_os_name $os_str)" "$root"
         chroot_mount_partitions "$1" "$root"
         else
@@ -99,7 +99,7 @@ chroot_mount_partitions(){
     [[ ${chroot_arch} == x86-64 ]] && chroot_arch=${chroot_arch/-/_}
     case ${target_arch} in
         i686)
-            if [[ ${chroot_arch} == x86_64 ]];then
+            if [[ ${chroot_arch} == x86_64 ]]; then
                 die "You can't chroot from %s host into %s!" "${target_arch}" "${chroot_arch}"
             fi
         ;;

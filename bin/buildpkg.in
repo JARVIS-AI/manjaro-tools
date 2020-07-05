@@ -21,6 +21,7 @@ SYSCONFDIR='@sysconfdir@'
 
 import ${LIBDIR}/util.sh
 import ${LIBDIR}/util-pkg.sh
+import ${LIBDIR}/util-pkg-chroot.sh
 
 show_pkg(){
     check_build "$1"
@@ -37,13 +38,9 @@ display_settings(){
     show_config
 
     msg "PROFILE:"
-    msg2 "list_dir_pkg: %s" "${list_dir_pkg}"
     msg2 "build_lists: %s" "$(show_build_lists ${list_dir_pkg})"
     msg2 "build_list_pkg: %s" "${build_list_pkg}"
     msg2 "is_build_list: %s" "${is_build_list}"
-    msg2 "build_mirror: %s" "${build_mirror}/${target_branch}"
-# 	msg2 "make_conf_dir: %s" "${make_conf_dir}"
-# 	msg2 "build_profiles: %s" "$(show_build_profiles ${make_conf_dir})"
 
     msg "OPTIONS:"
     msg2 "arch: %s" "${target_arch}"
@@ -56,13 +53,11 @@ display_settings(){
     msg2 "wipe_clean: %s" "${wipe_clean}"
     msg2 "namcap: %s" "${namcap}"
     msg2 "sign: %s" "${sign}"
-    msg2 "udev_root: %s" "${udev_root}"
 
     msg "PATHS:"
-    msg2 "work_dir: %s" "${work_dir}"
     msg2 "pkg_dir: %s" "${pkg_dir}"
 
-    if ${clean_first};then
+    if ${clean_first}; then
         msg "PKG:"
         msg2 "base_packages: %s" "${base_packages[*]}"
     fi
@@ -84,24 +79,22 @@ namcap=false
 pretend=false
 is_build_list=false
 sign=false
-udev_root=false
 is_multilib=false
 
 usage() {
     echo "Usage: ${0##*/} [options]"
-    echo "    -p <pkg>           Build list or pkg [default: ${build_list_pkg}]"
     echo "    -a <arch>          Arch [default: ${target_arch}]"
     echo "    -b <branch>        Branch [default: ${target_branch}]"
+    echo '    -c                 Recreate chroot'
+    echo '    -h                 This help'
+    echo '    -i <pkgs>          Install packages into the working copy of the chroot'
+    echo '    -n                 Install and run namcap check'
+    echo "    -p <pkg>           Build list or pkg [default: ${build_list_pkg}]"
+    echo '    -q                 Query settings and pretend build'
     echo '    -r <dir>           Chroots directory'
     echo "                       [default: ${chroots_pkg}]"
-    echo '    -i <pkg>           Install a package into the working copy of the chroot'
-    echo '    -c                 Recreate chroot'
-    echo '    -w                 Clean up cache and sources'
-    echo '    -n                 Install and run namcap check'
     echo '    -s                 Sign packages'
-    echo '    -u                 Udev base-devel group (no systemd)'
-    echo '    -q                 Query settings and pretend build'
-    echo '    -h                 This help'
+    echo '    -w                 Clean up cache and sources'
     echo ''
     echo ''
     exit $1
@@ -113,17 +106,16 @@ opts='p:a:b:r:i:cwnsuqh'
 
 while getopts "${opts}" arg; do
     case "${arg}" in
-        p) build_list_pkg="$OPTARG" ;;
         a) target_arch="$OPTARG" ;;
         b) target_branch="$OPTARG" ;;
-        r) chroots_pkg="$OPTARG" ;;
-        i) install_pkgs+="$OPTARG"; mkchrootpkg_args+=(-I ${install_pkgs[*]}) ;;
         c) clean_first=true ;;
-        w) wipe_clean=true ;;
+        i) install_pkgs+=("$OPTARG"); mkchrootpkg_args+=(-I ${install_pkgs[*]}) ;;
         n) namcap=true; mkchrootpkg_args+=(-n) ;;
-        s) sign=true ;;
-        u) udev_root=true ;;
+        p) build_list_pkg="${OPTARG%/}" ;;
         q) pretend=true ;;
+        r) chroots_pkg="$OPTARG" ;;
+        s) sign=true ;;
+        w) wipe_clean=true ;;
         h|?) usage 0 ;;
         *) echo "invalid argument '${arg}'"; usage 1 ;;
     esac
@@ -134,6 +126,8 @@ shift $(($OPTIND - 1))
 check_root "$0" "${orig_argv[@]}"
 
 prepare_dir "${log_dir}"
+
+user_own "${log_dir}"
 
 prepare_dir "${tmp_dir}"
 

@@ -55,10 +55,11 @@ _mnt_sfs() {
     local mnt="${2}"
     local img_fullname="${img##*/}"
     local sfs_dev
+    local oper=$( [[ -n "${ip}" && -n "${miso_http_srv}" ]] && echo "mv" || echo "cp" )
 
     if [[ "${copytoram}" == "y" ]]; then
         msg -n ":: Copying squashfs image to RAM..."
-        if ! cp "${img}" "/run/miso/copytoram/${img_fullname}" ; then
+        if ! "${oper}" "${img}" "/run/miso/copytoram/${img_fullname}" ; then
             echo "ERROR: while copy '${img}' to '/run/miso/copytoram/${img_fullname}'"
             launch_interactive_shell
         fi
@@ -157,36 +158,40 @@ miso_mount_handler() {
     fi
 
     if [[ "${checksum}" == "y" ]]; then
-        for fs in rootfs desktopfs mhwdfs livefs;do
-            if [[ -f "/run/miso/bootmnt/${misobasedir}/${arch}/${fs}.md5" ]]; then
-                msg -n ":: Self-test requested, please wait..."
-                if _verify_checksum "${fs}"; then
-                    msg "done. Checksum is OK, continue booting."
+        for fs in rootfs desktopfs mhwdfs livefs; do
+            if [[ -f "/run/miso/bootmnt/${misobasedir}/${arch}/${fs}.sfs" ]]; then
+                if [[ -f "/run/miso/bootmnt/${misobasedir}/${arch}/${fs}.md5" ]]; then
+                    msg -n ":: Self-test requested, please wait..."
+                    if _verify_checksum "${fs}"; then
+                        msg "done. Checksum is OK, continue booting."
+                    else
+                        echo "ERROR: one or more files are corrupted"
+                        echo "see /tmp/checksum.log for details"
+                        launch_interactive_shell
+                    fi
                 else
-                    echo "ERROR: one or more files are corrupted"
-                    echo "see /tmp/checksum.log for details"
+                    echo "ERROR: checksum=y option specified but ${misobasedir}/${arch}/${fs}.md5 not found"
                     launch_interactive_shell
                 fi
-            else
-                echo "ERROR: checksum=y option specified but ${misobasedir}/${arch}/${fs}.md5 not found"
-                launch_interactive_shell
             fi
         done
     fi
 
     if [[ "${verify}" == "y" ]]; then
-        for fs in rootfs desktopfs mhwdfs livefs;do
-            if [[ -f "/run/miso/bootmnt/${misobasedir}/${arch}/${fs}.sfs.sig" ]]; then
-                msg -n ":: Signature verification requested, please wait..."
-                if _verify_signature "${fs}"; then
-                    msg "done. Signature is OK, continue booting."
+        for fs in rootfs desktopfs mhwdfs livefs; do
+            if [[ -f "/run/miso/bootmnt/${misobasedir}/${arch}/${fs}.sfs" ]]; then
+                if [[ -f "/run/miso/bootmnt/${misobasedir}/${arch}/${fs}.sfs.sig" ]]; then
+                    msg -n ":: Signature verification requested, please wait..."
+                    if _verify_signature "${fs}"; then
+                        msg "done. Signature is OK, continue booting."
+                    else
+                        echo "ERROR: one or more files are corrupted"
+                        launch_interactive_shell
+                    fi
                 else
-                    echo "ERROR: one or more files are corrupted"
+                    echo "ERROR: verify=y option specified but ${misobasedir}/${arch}/${fs}.sfs.sig not found"
                     launch_interactive_shell
                 fi
-            else
-                echo "ERROR: verify=y option specified but ${misobasedir}/${arch}/${fs}.sfs.sig not found"
-                launch_interactive_shell
             fi
         done
     fi
@@ -216,7 +221,7 @@ miso_mount_handler() {
     local dest_sfs="/run/miso/sfs" dest_img="/run/miso/img"
     local lower_dir
 
-    for sfs in livefs mhwdfs desktopfs rootfs;do
+    for sfs in livefs mhwdfs desktopfs rootfs; do
         if [[ -f "${src}/${sfs}.sfs" ]]; then
             _mnt_sfs "${src}/${sfs}.sfs" "${dest_sfs}/${sfs}"
             if [[ -f "${dest_sfs}/${sfs}/${sfs}.img" ]]; then
@@ -233,6 +238,8 @@ miso_mount_handler() {
 
     if [[ "${copytoram}" == "y" ]]; then
         umount -d /run/miso/bootmnt
+        mkdir -p /run/miso/bootmnt/${misobasedir}/${arch}
+        mount -o bind /run/miso/copytoram /run/miso/bootmnt/${misobasedir}/${arch}
     fi
 }
 

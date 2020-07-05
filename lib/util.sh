@@ -133,16 +133,6 @@ show_elapsed_time(){
     info "Time %s: %s minutes" "$1" "$(elapsed_time $2)"
 }
 
-get_project(){
-    local project
-    case "$1" in
-        'community'|'minimal') project='manjarolinux-community' ;;
-        'official') project='manjarolinux' ;;
-        'sonar') project='sonargnulinux' ;;
-    esac
-    echo ${project}
-}
-
 lock() {
     eval "exec $1>"'"$2"'
     if ! flock -n $1; then
@@ -193,13 +183,9 @@ load_vars() {
 }
 
 prepare_dir(){
-    [[ ! -d $1 ]] && mkdir -p $1
-}
-
-version_gen(){
-    local y=$(date +%Y) m=$(date +%m) ver
-    ver=${y:2}.$m
-    echo $ver
+    if [[ ! -d $1 ]]; then
+        mkdir -p $1
+    fi
 }
 
 # $1: chroot
@@ -225,11 +211,9 @@ init_common(){
 
     [[ -z ${log_dir} ]] && log_dir='/var/log/manjaro-tools'
 
-    [[ -z ${build_mirror} ]] && build_mirror='http://mirror.netzspielplatz.de/manjaro/packages'
+    [[ -z ${build_mirror} ]] && build_mirror='https://mirror.netzspielplatz.de/manjaro/packages'
 
     [[ -z ${tmp_dir} ]] && tmp_dir='/tmp/manjaro-tools'
-
-    [[ -z ${host} ]] && host="sourceforge.net"
 }
 
 init_buildtree(){
@@ -237,7 +221,7 @@ init_buildtree(){
 
     tree_dir_abs=${tree_dir}/packages-archlinux
 
-    [[ -z ${repo_tree[@]} ]] && repo_tree=('core' 'extra' 'community' 'multilib' 'openrc')
+    [[ -z ${repo_tree[@]} ]] && repo_tree=('core' 'extra' 'community' 'multilib')
 
     [[ -z ${host_tree} ]] && host_tree='https://github.com/manjaro'
 
@@ -272,6 +256,36 @@ get_codename(){
     echo "${DISTRIB_CODENAME}"
 }
 
+get_release(){
+    source /etc/lsb-release
+    echo "${DISTRIB_RELEASE}"
+}
+
+get_distname(){
+    source /etc/lsb-release
+    echo "${DISTRIB_ID%Linux}"
+}
+
+get_distid(){
+    source /etc/lsb-release
+    echo "${DISTRIB_ID}"
+}
+
+get_disturl(){
+    source /usr/lib/os-release
+    echo "${HOME_URL}"
+}
+
+get_osname(){
+    source /usr/lib/os-release
+    echo "${NAME}"
+}
+
+get_osid(){
+    source /usr/lib/os-release
+    echo "${ID}"
+}
+
 init_buildiso(){
     chroots_iso="${chroots_dir}/buildiso"
 
@@ -283,40 +297,42 @@ init_buildiso(){
 
     cache_dir_iso="${cache_dir}/iso"
 
+    profile_repo='iso-profiles'
+
     ##### iso settings #####
 
-    [[ -z ${dist_release} ]] && dist_release=$(version_gen)
+    [[ -z ${dist_release} ]] && dist_release=$(get_release)
 
     [[ -z ${dist_codename} ]] && dist_codename=$(get_codename)
 
+    dist_name=$(get_distname)
+
+    iso_name=$(get_osid)
+
     [[ -z ${dist_branding} ]] && dist_branding="MJRO"
-
-    [[ -z ${dist_name} ]] && dist_name="Manjaro"
-
-    iso_name=${dist_name,,}
 
     iso_label=$(get_iso_label "${dist_branding}${dist_release//.}")
 
-    [[ -z ${iso_publisher} ]] && iso_publisher='Manjaro Linux <http://www.manjaro.org>'
+    [[ -z ${kernel} ]] && kernel="linux414"
 
-    [[ -z ${iso_app_id} ]] && iso_app_id='Manjaro Linux Live/Rescue CD'
-
-    [[ -z ${initsys} ]] && initsys="systemd"
-
-    [[ -z ${kernel} ]] && kernel="linux49"
-
-    [[ -z ${use_overlayfs} ]] && use_overlayfs='true'
-
-    [[ -z ${profile_repo} ]] && profile_repo='iso-profiles'
+    [[ -z ${gpgkey} ]] && gpgkey=''
 
     mhwd_repo="/opt/pkg"
 }
 
 init_deployiso(){
 
+    host="osdn.net"
+
     [[ -z ${account} ]] && account="[SetUser]"
 
-    [[ -z ${limit} ]] && limit=100
+    [[ -z ${alt_storage} ]] && alt_storage=false
+
+    [[ -z ${tracker_url} ]] && tracker_url='udp://mirror.strits.dk:6969'
+
+    [[ -z ${piece_size} ]] && piece_size=21
+
+    torrent_meta="$(get_distid)"
 }
 
 load_config(){
@@ -340,49 +356,6 @@ load_config(){
     return 0
 }
 
-is_valid_bool(){
-    case $1 in
-        'true'|'false') return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
-check_profile_vars(){
-    if ! is_valid_bool "${autologin}";then
-        die "autologin only accepts true/false value!"
-    fi
-    if ! is_valid_bool "${multilib}";then
-        die "multilib only accepts true/false value!"
-    fi
-    if ! is_valid_bool "${nonfree_mhwd}";then
-        die "nonfree_mhwd only accepts true/false value!"
-    fi
-    if ! is_valid_bool "${plymouth_boot}";then
-        die "plymouth_boot only accepts true/false value!"
-    fi
-    if ! is_valid_bool "${pxe_boot}";then
-        die "pxe_boot only accepts true/false value!"
-    fi
-    if ! is_valid_bool "${netinstall}";then
-        die "netinstall only accepts true/false value!"
-    fi
-    if ! is_valid_bool "${chrootcfg}";then
-        die "chrootcfg only accepts true/false value!"
-    fi
-    if ! is_valid_bool "${geoip}";then
-        die "geoip only accepts true/false value!"
-    fi
-}
-
-get_svc(){
-    local service=${displaymanager}
-    case $service in
-        'sddm'|'lxdm') service="$service" ;;
-        *) ${plymouth_boot} && service="$service-plymouth" ;;
-    esac
-    echo $service
-}
-
 load_profile_config(){
 
     [[ -f $1 ]] || return 1
@@ -398,11 +371,6 @@ load_profile_config(){
 
     [[ -z ${multilib} ]] && multilib="true"
 
-    [[ -z ${pxe_boot} ]] && pxe_boot="true"
-
-    [[ -z ${plymouth_boot} ]] && plymouth_boot="true"
-#     [[ ${initsys} == 'openrc' ]] && plymouth_boot="false"
-
     [[ -z ${nonfree_mhwd} ]] && nonfree_mhwd="true"
 
     [[ -z ${efi_boot_loader} ]] && efi_boot_loader="grub"
@@ -411,58 +379,47 @@ load_profile_config(){
 
     [[ -z ${username} ]] && username="manjaro"
 
-    [[ -z ${plymouth_theme} ]] && plymouth_theme="manjaro-elegant"
-
     [[ -z ${password} ]] && password="manjaro"
 
     [[ -z ${login_shell} ]] && login_shell='/bin/bash'
 
-    if [[ -z ${addgroups} ]];then
-        addgroups="video,power,disk,storage,optical,network,lp,scanner,wheel"
+    if [[ -z ${addgroups} ]]; then
+        addgroups="audio,disk,lp,network,optical,power,scanner,storage,video,wheel"
     fi
 
-    if [[ -z ${enable_systemd[@]} ]];then
-        enable_systemd=('bluetooth' 'cronie' 'ModemManager' 'NetworkManager' 'org.cups.cupsd' 'tlp' 'tlp-sleep')
+    if [[ -z ${enable_systemd[@]} ]]; then
+        enable_systemd=('avahi-daemon' 'bluetooth' 'cronie' 'ModemManager' 'NetworkManager' 'org.cups.cupsd' 'tlp' 'tlp-sleep' 'ufw')
     fi
 
     [[ -z ${disable_systemd[@]} ]] && disable_systemd=('pacman-init')
 
-    if [[ -z ${enable_openrc[@]} ]];then
-        enable_openrc=('acpid' 'bluetooth' 'cgmanager' 'consolekit' 'cronie' 'cupsd' 'dbus' 'syslog-ng' 'NetworkManager')
-    fi
-
-    [[ -z ${disable_openrc[@]} ]] && disable_openrc=()
-
-    if [[ -z ${enable_systemd_live[@]} ]];then
+    if [[ -z ${enable_systemd_live[@]} ]]; then
         enable_systemd_live=('manjaro-live' 'mhwd-live' 'pacman-init' 'mirrors-live')
     fi
 
-    if [[ -z ${enable_openrc_live[@]} ]];then
-        enable_openrc_live=('manjaro-live' 'mhwd-live' 'pacman-init' 'mirrors-live')
-    fi
-
     if [[ ${displaymanager} != "none" ]]; then
-        enable_openrc+=('xdm')
-        enable_systemd+=("$(get_svc)")
+        enable_systemd+=("${displaymanager}")
     fi
-
-    [[ -z ${tracker_url} ]] && tracker_url='udp://mirror.strits.dk:6969'
-
-    [[ -z ${piece_size} ]] && piece_size=21
 
     [[ -z ${netinstall} ]] && netinstall='false'
 
+    [[ -z ${mhwd_used} ]] && mhwd_used='true'
+
+    [[ -z ${oem_used} ]] && oem_used='false'
+
     [[ -z ${chrootcfg} ]] && chrootcfg='false'
 
-    #[[ -z ${netgroups} ]] && -- needs to be hardcoded for now, until a standard has been established
-    # will be unlocked again after everything has been established.
     netgroups="https://raw.githubusercontent.com/manjaro/calamares-netgroups/master"
 
     [[ -z ${geoip} ]] && geoip='true'
 
     [[ -z ${smb_workgroup} ]] && smb_workgroup=''
 
-    check_profile_vars
+    [[ -z ${extra} ]] && extra='false'
+    [[ ${full_iso} ]] && extra='true'
+
+    basic='true'
+    [[ ${extra} == 'true' ]] && basic='false'
 
     return 0
 }
@@ -474,11 +431,22 @@ get_edition(){
     echo ${path##*/}
 }
 
+get_project(){
+    case "${edition}" in
+        'manjaro')
+            project="manjaro"
+        ;;
+        'community')
+            project="manjaro-community"
+        ;;
+    esac
+    echo "${project}"
+}
+
 reset_profile(){
     unset displaymanager
     unset autologin
     unset multilib
-    unset pxe_boot
     unset nonfree_mhwd
     unset efi_boot_loader
     unset hostname
@@ -487,34 +455,27 @@ reset_profile(){
     unset addgroups
     unset enable_systemd
     unset disable_systemd
-    unset enable_openrc
-    unset disable_openrc
     unset enable_systemd_live
-    unset enable_openrc_live
     unset packages_desktop
     unset packages_mhwd
     unset login_shell
-    unset tracker_url
-    unset piece_size
     unset netinstall
     unset chrootcfg
-    unset netgroups
     unset geoip
-    unset plymouth_boot
-    unset plymouth_theme
+    unset extra
+    unset full_iso
 }
 
 check_profile(){
-    local keyfiles=("${profile_dir}/mkinitcpio.conf"
-            "${profile_dir}/Packages-Root"
-            "${profile_dir}/Packages-Live")
+    local keyfiles=("$1/Packages-Root"
+            "$1/Packages-Live")
 
-    local keydirs=("${profile_dir}/root-overlay"
-            "${profile_dir}/live-overlay")
+    local keydirs=("$1/root-overlay"
+            "$1/live-overlay")
 
     local has_keyfiles=false has_keydirs=false
     for f in ${keyfiles[@]}; do
-        if [[ -f $f ]];then
+        if [[ -f $f ]]; then
             has_keyfiles=true
         else
             has_keyfiles=false
@@ -522,20 +483,20 @@ check_profile(){
         fi
     done
     for d in ${keydirs[@]}; do
-        if [[ -d $d ]];then
+        if [[ -d $d ]]; then
             has_keydirs=true
         else
             has_keydirs=false
             break
         fi
     done
-    if ! ${has_keyfiles} && ! ${has_keydirs};then
-        die "Profile [%s] sanity check failed!" "${profile_dir}"
+    if ! ${has_keyfiles} && ! ${has_keydirs}; then
+        die "Profile [%s] sanity check failed!" "$1"
     fi
 
-    [[ -f "${profile_dir}/Packages-Desktop" ]] && packages_desktop=${profile_dir}/Packages-Desktop
+    [[ -f "$1/Packages-Desktop" ]] && packages_desktop=$1/Packages-Desktop
 
-    [[ -f "${profile_dir}/Packages-Mhwd" ]] && packages_mhwd=${profile_dir}/Packages-Mhwd
+    [[ -f "$1/Packages-Mhwd" ]] && packages_mhwd=$1/Packages-Mhwd
 
     if ! ${netinstall}; then
         chrootcfg="false"
@@ -546,19 +507,20 @@ check_profile(){
 load_pkgs(){
     info "Loading Packages: [%s] ..." "${1##*/}"
 
-    local _init _init_rm
-    case "${initsys}" in
-        'openrc')
-            _init="s|>openrc||g"
-            _init_rm="s|>systemd.*||g"
-        ;;
-        *)
-            _init="s|>systemd||g"
-            _init_rm="s|>openrc.*||g"
-        ;;
-    esac
+    local _multi _nonfree_default _nonfree_multi _arch _arch_rm _nonfree_i686 _nonfree_x86_64 _basic _basic_rm _extra _extra_rm
 
-    local _multi _nonfree_default _nonfree_multi _arch _arch_rm _nonfree_i686 _nonfree_x86_64
+    if ${basic}; then
+        _basic="s|>basic||g"
+    else
+        _basic_rm="s|>basic.*||g"
+    fi
+
+    if ${extra}; then
+        _extra="s|>extra||g"
+    else
+        _extra_rm="s|>extra.*||g"
+    fi
+
     case "${target_arch}" in
         "i686")
             _arch="s|>i686||g"
@@ -566,7 +528,7 @@ load_pkgs(){
             _multi="s|>multilib.*||g"
             _nonfree_multi="s|>nonfree_multilib.*||g"
             _nonfree_x86_64="s|>nonfree_x86_64.*||g"
-            if ${nonfree_mhwd};then
+            if ${nonfree_mhwd}; then
                 _nonfree_default="s|>nonfree_default||g"
                 _nonfree_i686="s|>nonfree_i686||g"
 
@@ -579,9 +541,9 @@ load_pkgs(){
             _arch="s|>x86_64||g"
             _arch_rm="s|>i686.*||g"
             _nonfree_i686="s|>nonfree_i686.*||g"
-            if ${multilib};then
+            if ${multilib}; then
                 _multi="s|>multilib||g"
-                if ${nonfree_mhwd};then
+                if ${nonfree_mhwd}; then
                     _nonfree_default="s|>nonfree_default||g"
                     _nonfree_x86_64="s|>nonfree_x86_64||g"
                     _nonfree_multi="s|>nonfree_multilib||g"
@@ -592,7 +554,7 @@ load_pkgs(){
                 fi
             else
                 _multi="s|>multilib.*||g"
-                if ${nonfree_mhwd};then
+                if ${nonfree_mhwd}; then
                     _nonfree_default="s|>nonfree_default||g"
                     _nonfree_x86_64="s|>nonfree_x86_64||g"
                     _nonfree_multi="s|>nonfree_multilib.*||g"
@@ -604,13 +566,6 @@ load_pkgs(){
             fi
         ;;
     esac
-
-    local _plymouth _plymouth_rm
-    if ${plymouth_boot};then
-        _plymouth="s|>plymouth||g"
-    else
-        _plymouth_rm="s|>plymouth.*||g"
-    fi
 
     local _edition _edition_rm
     case "${edition}" in
@@ -637,8 +592,6 @@ load_pkgs(){
             | sed "$_space" \
             | sed "$_blacklist" \
             | sed "$_purge" \
-            | sed "$_init" \
-            | sed "$_init_rm" \
             | sed "$_arch" \
             | sed "$_arch_rm" \
             | sed "$_nonfree_default" \
@@ -649,8 +602,10 @@ load_pkgs(){
             | sed "$_kernel" \
             | sed "$_edition" \
             | sed "$_edition_rm" \
-            | sed "$_plymouth" \
-            | sed "$_plymouth_rm" \
+            | sed "$_basic" \
+            | sed "$_basic_rm" \
+            | sed "$_extra" \
+            | sed "$_extra_rm" \
             | sed "$_clean")
 
     if [[ $1 == "${packages_mhwd}" ]]; then
@@ -679,11 +634,11 @@ clean_dir(){
 }
 
 write_repo_conf(){
-    local repos=$(find $USER_HOME -type f -name ".buildiso")
+    local repos=$(find $USER_HOME -type f -name "repo_info")
     local path name
     [[ -z ${repos[@]} ]] && run_dir=${DATADIR}/iso-profiles && return 1
     for r in ${repos[@]}; do
-        path=${r%/.*}
+        path=${r%/repo_info}
         name=${path##*/}
         echo "run_dir=$path" > ${USERCONFDIR}/$name.conf
     done
@@ -715,11 +670,10 @@ show_version(){
 
 show_config(){
     if [[ -f ${USERCONFDIR}/manjaro-tools.conf ]]; then
-        msg2 "user_config: %s" "${USERCONFDIR}/manjaro-tools.conf"
+        msg2 "config: %s" "~/.config/manjaro-tools/manjaro-tools.conf"
     else
-        msg2 "manjaro_tools_conf: %s" "${manjaro_tools_conf}"
+        msg2 "config: %s" "${manjaro_tools_conf}"
     fi
-    msg2 "log_dir: %s" "${log_dir}"
 }
 
 # $1: chroot
@@ -752,13 +706,6 @@ create_min_fs(){
     mkdir -m 0555 -p $1/{sys,proc}
 }
 
-is_valid_init(){
-    case $1 in
-        'openrc'|'systemd') return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
 is_valid_arch_pkg(){
     eval "case $1 in
         $(show_build_profiles "${make_conf_dir}")) return 0 ;;
@@ -781,11 +728,36 @@ is_valid_branch(){
 }
 
 run(){
-    if ${is_build_list};then
-        for item in ${build_list[@]};do
+    if ${is_build_list}; then
+        for item in ${build_list[@]}; do
             $1 $item
         done
     else
         $1 $2
     fi
+}
+
+is_btrfs() {
+    [[ -e "$1" && "$(stat -f -c %T "$1")" == btrfs ]]
+}
+
+subvolume_delete_recursive() {
+    local subvol
+
+    is_btrfs "$1" || return 0
+
+    while IFS= read -d $'\0' -r subvol; do
+        if ! btrfs subvolume delete "$subvol" &>/dev/null; then
+            error "Unable to delete subvolume %s" "$subvol"
+            return 1
+        fi
+    done < <(find "$1" -xdev -depth -inum 256 -print0)
+
+    return 0
+}
+
+create_chksums() {
+    msg2 "creating checksums for [$1]"
+    sha1sum $1 > $1.sha1
+    sha256sum $1 > $1.sha256
 }

@@ -1,4 +1,4 @@
-Version=0.14.0
+Version=0.15.5
 
 PREFIX = /usr/local
 SYSCONFDIR = /etc
@@ -26,15 +26,10 @@ SHARED_BASE = \
 	data/pacman-mirrors.conf
 
 LIST_PKG = \
-	data/pkg.list.d/default.list
+	$(wildcard data/pkg.list.d/*.list)
 
 ARCH_CONF = \
-	data/make.conf.d/i686.conf \
-	data/make.conf.d/x86_64.conf \
-	data/make.conf.d/multilib.conf
-# 	data/make.conf.d/aarch64.conf \
-# 	data/make.conf.d/armv6h.conf \
-# 	data/make.conf.d/armv7h.conf
+	$(wildcard data/make.conf.d/*.conf)
 
 BIN_PKG = \
 	bin/checkpkg \
@@ -47,57 +42,34 @@ BIN_PKG = \
 	bin/buildtree
 
 LIBS_PKG = \
-	lib/util-pkg.sh \
-	lib/util-pkgtree.sh
+	$(wildcard lib/util-pkg*.sh)
 
 SHARED_PKG = \
-	data/makepkg.conf \
-	data/base-devel-udev
+	data/makepkg.conf
 
 LIST_ISO = \
-	data/iso.list.d/default.list \
-	data/iso.list.d/official.list \
-	data/iso.list.d/community.list \
-	data/iso.list.d/minimal.list \
-	data/iso.list.d/sonar.list
+	$(wildcard data/iso.list.d/*.list)
 
 BIN_ISO = \
 	bin/buildiso \
 	bin/testiso \
-	bin/deployiso
+	bin/deployiso \
+	bin/signiso
 
 LIBS_ISO = \
-	lib/util-iso.sh \
-	lib/util-iso-aufs.sh \
-	lib/util-iso-overlayfs.sh \
-	lib/util-iso-image.sh \
-	lib/util-iso-boot.sh \
+	$(wildcard lib/util-iso*.sh) \
 	lib/util-publish.sh
 
 SHARED_ISO = \
 	data/pacman-mhwd.conf \
+	data/mkinitcpio.conf \
 	data/profile.conf.example
 
 CPIOHOOKS = \
-	initcpio/hooks/miso \
-	initcpio/hooks/miso_aufs \
-	initcpio/hooks/miso_loop_mnt \
-	initcpio/hooks/miso_pxe_common \
-	initcpio/hooks/miso_pxe_http \
-	initcpio/hooks/miso_pxe_nbd \
-	initcpio/hooks/miso_pxe_nfs \
-	initcpio/hooks/miso_shutdown
+	$(wildcard initcpio/hooks/*)
 
 CPIOINST = \
-	initcpio/install/miso \
-	initcpio/install/miso_aufs \
-	initcpio/install/miso_loop_mnt \
-	initcpio/install/miso_pxe_common \
-	initcpio/install/miso_pxe_http \
-	initcpio/install/miso_pxe_nbd \
-	initcpio/install/miso_pxe_nfs \
-	initcpio/install/miso_kms \
-	initcpio/install/miso_shutdown
+	$(wildcard initcpio/install/*)
 
 CPIO = \
 	initcpio/script/miso_shutdown
@@ -186,14 +158,6 @@ install_iso:
 
 	install -dm0755 $(DESTDIR)$(PREFIX)/lib/manjaro-tools
 	install -m0644 ${LIBS_ISO} $(DESTDIR)$(PREFIX)/lib/manjaro-tools
-
-# 	install -dm0755 $(DESTDIR)$(PREFIX)/lib/initcpio/hooks
-# 	install -m0755 ${CPIOHOOKS} $(DESTDIR)$(PREFIX)/lib/initcpio/hooks
-#
-# 	install -dm0755 $(DESTDIR)$(PREFIX)/lib/initcpio/install
-# 	install -m0755 ${CPIOINST} $(DESTDIR)$(PREFIX)/lib/initcpio/install
-
-# 	install -m0755 ${CPIO} $(DESTDIR)$(PREFIX)/lib/initcpio
 
 	install -dm0755 $(DESTDIR)$(SYSCONFDIR)/initcpio/hooks
 	install -m0755 ${CPIOHOOKS} $(DESTDIR)$(SYSCONFDIR)/initcpio/hooks

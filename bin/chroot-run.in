@@ -81,7 +81,7 @@ copy_hostconf () {
     [[ -n $makepkg_conf ]] && cp $makepkg_conf "$1/etc/makepkg.conf"
     [[ -n $mirrors_conf ]] && cp ${mirrors_conf} "$1/etc/pacman-mirrors.conf"
 
-    if [[ -n ${build_mirror} ]];then
+    if [[ -n ${build_mirror} ]]; then
         build_mirror=${build_mirror}'/$repo/$arch'
         if ${keep_mirrors}; then
             set_branch "$1" "$(get_branch $1)"
@@ -103,7 +103,7 @@ chroot_extra_umount() {
         chroot_mount "$cache_dir" "$1${cache_dir}" -Br
     done
 
-    if [[ -n ${mountargs_ro[@]} ]];then
+    if [[ -n ${mountargs_ro[@]} ]]; then
         local IFS=','
         for m in ${mountargs_ro[@]}; do
             chroot_mount "${m%%:*}" "$1${m##*:}" -Br
@@ -111,7 +111,7 @@ chroot_extra_umount() {
         unset IFS
     fi
 
-    if [[ -n ${mountargs_rw[@]} ]];then
+    if [[ -n ${mountargs_rw[@]} ]]; then
         local IFS=','
         for m in ${mountargs_rw[@]}; do
             chroot_mount "${m%%:*}" "$1${m##*:}" -B

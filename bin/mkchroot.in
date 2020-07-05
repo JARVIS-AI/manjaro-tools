@@ -81,7 +81,7 @@ umask 0022
 
 lock 9 "${working_dir}.lock" "Locking chroot"
 
-if [[ $(stat -f -c %T "$working_dir") == btrfs ]]; then
+if is_btrfs "$working_dir"; then
     rmdir "$working_dir"
     if ! btrfs subvolume create "$working_dir"; then
         die "Couldn't create subvolume for '%s'" "$working_dir"
@@ -92,7 +92,8 @@ fi
 # Workaround when creating a chroot in a branch different of the host
 if [[ -n $pac_conf ]] && [[ -n $mirrors_conf ]] && [[ -n ${build_mirror} ]]; then
     url=${build_mirror}'/$repo/$arch'
-    info "mirror: %s" "$url"
+    [[ ${build_mirror} = *ftp*repo.manjaro.org* ]] && show_mirror=repo.manjaro.org'/$repo/$arch' || show_mirror=$url
+    info "mirror: %s" "$show_mirror"
     pac_base="$working_dir/pacman-basestrap.conf"
     sed "s#Include = /etc/pacman.d/mirrorlist#Server = ${url}#g" $pac_conf > $pac_base
 
@@ -107,7 +108,7 @@ fi
 
 echo "$version" > "$working_dir/.manjaro-tools"
 
-if ${build_locales};then
+if ${build_locales}; then
     info "Using build locales ..."
     mv "$working_dir/etc/locale.gen" "$working_dir/etc/locale.gen.bak"
     mv "$working_dir/etc/locale.conf" "$working_dir/etc/locale.conf.bak"

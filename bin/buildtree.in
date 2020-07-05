@@ -61,10 +61,10 @@ opts='sacqh'
 
 while getopts "${opts}" arg; do
     case "${arg}" in
-        s) sync=true ;;
         a) abs=true ;;
         c) clean=true ;;
         q) pretend=true ;;
+        s) sync=true ;;
         h|?) usage 0 ;;
         *) echo "invalid argument '${arg}'"; usage 1 ;;
     esac

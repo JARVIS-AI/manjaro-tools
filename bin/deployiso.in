@@ -20,11 +20,11 @@ import ${LIBDIR}/util.sh
 import ${LIBDIR}/util-publish.sh
 
 show_profile(){
-    prepare_transfer "$1"
+    prepare_transfer "$1" "${hidden}"
     info "Profile: [$1]"
     msg2 "project: %s" "${project}"
     msg2 "src_dir: ${src_dir}"
-    msg2 "target_dir: ${target_dir}"
+    msg2 "remote dir: ${url}/${target_dir}"
 }
 
 display_settings(){
@@ -32,24 +32,31 @@ display_settings(){
     show_config
 
     msg "PROFILE:"
-    msg2 "list_dir_iso: %s" "${list_dir_iso}"
     msg2 "build_lists: %s" "$(show_build_lists ${list_dir_iso})"
     msg2 "build_list_iso: %s" "${build_list_iso}"
     msg2 "is_build_list: %s" "${is_build_list}"
 
     msg "OPTIONS:"
-    msg2 "limit: %s kB/s" "${limit}"
+    [[ -z ${limit} ]] && msg2 "bandwidth limit: no" || msg2 "bandwidth limit: %s kB/s" "${limit}"
     msg2 "dist_release: %s" "${dist_release}"
 
     msg "ARGS:"
     msg2 "update: %s" "${update}"
-    msg2 "release: %s" "${release}"
     msg2 "verbose: %s" "${verbose}"
-    msg2 "rsync_args: %s" "${rsync_args[*]}"
+    msg2 "signiso: %s" "${sign}"
+    msg2 "torrent: %s" "${torrent}"
+
+    if ${torrent}; then
+        msg2 "tracker_url: %s" "${tracker_url}"
+        msg2 "piece_size: %s" "${piece_size}"
+        msg2 "torrent_meta: %s" "${torrent_meta}"
+    fi
 
     msg "REMOTE:"
     msg2 "account: %s" "${account}"
     msg2 "host: %s" "${host}"
+    msg2 "alt_storage: %s" "${alt_storage}"
+    msg2 "ssh_agentt: %s" "${ssh_agent}"
 
     msg "UPLOAD QUEUE:"
     run show_profile "${build_list_iso}"
@@ -61,38 +68,43 @@ load_config "${USERCONFDIR}/manjaro-tools.conf" || load_config "${SYSCONFDIR}/ma
 
 run_dir=${cache_dir_iso}
 
+hidden=false
 pretend=false
-release=false
+torrent=false
 update=false
 verbose=false
-exists=false
+sign=false
 
-rsync_args=(-aP --progress -e ssh)
+rsync_args=(-aP -e ssh)
 
 usage() {
     echo "Usage: ${0##*/} [options]"
-    echo "    -p                 Source folder to upload [default:${build_list_iso}]"
-    echo "    -l                 Limit bandwidth in kB/s [default:${limit}]"
-    echo '    -c                 Create new remote release directory'
-    echo '    -u                 Update remote directory'
-    echo '    -q                 Query settings and pretend upload'
-    echo '    -v                 Verbose output'
+    echo '    -d                 Use hidden remote directory'
     echo '    -h                 This help'
+    echo "    -l                 Limit bandwidth in kB/s [default: ${limit}]"
+    echo "    -p                 Source folder to upload [default: ${build_list_iso}]"
+    echo '    -q                 Query settings and pretend upload'
+    echo '    -s                 Sign ISO and create checksums'
+    echo '    -t                 Create ISO torrent'
+    echo '    -u                 Update remote directory'
+    echo '    -v                 Verbose output'
     echo ''
     echo ''
     exit $1
 }
 
-opts='p:l:cuvqh'
+opts='dhl:p:qstuv'
 
 while getopts "${opts}" arg; do
     case "${arg}" in
-                p) build_list_iso="$OPTARG" ;;
-                l) limit="$OPTARG" ;;
-                c) release=true ;;
-                u) update=true; rsync_args+=(-u) ;;
-                v) verbose=true; rsync_args+=(-v --stats) ;;
+        d) hidden=true ;;
+        l) limit="$OPTARG"; rsync_args+=(--bwlimit=${limit}) ;;
+        p) build_list_iso="$OPTARG" ;;
         q) pretend=true; rsync_args+=(-n) ;;
+        s) sign=true ;;
+        t) torrent=true ;;
+        u) update=true; rsync_args+=(-u) ;;
+        v) verbose=true; rsync_args+=(-v --stats) ;;
         h|?) usage 0 ;;
         *) echo "invalid argument '${arg}'"; usage 1 ;;
     esac
@@ -103,8 +115,6 @@ shift $(($OPTIND - 1))
 timer_start=$(get_timer)
 
 eval_build_list "${list_dir_iso}" "${build_list_iso}"
-
-rsync_args+=(--bwlimit=${limit})
 
 ${pretend} && display_settings && exit 1
 

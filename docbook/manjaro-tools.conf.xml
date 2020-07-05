@@ -119,13 +119,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
                 </para></listitem>
             </varlistentry>
 
-            <!--<varlistentry>
-                <term><varname>host=</varname></term>
-
-                <listitem><para>Default url to be used for upload.
-                </para></listitem>
-            </varlistentry>-->
-
         </variablelist>
     </refsect1>
 
@@ -139,7 +132,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
                 <term><varname>repo_tree=</varname></term>
 
                 <listitem><para>Manjaro package tree. Default is
-                "('core' 'extra' 'community' 'multilib' 'openrc')".
+                "('core' 'extra' 'community' 'multilib')".
                 </para></listitem>
             </varlistentry>
 
@@ -193,27 +186,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </varlistentry>
 
         <varlistentry>
-            <!-- TODO: We should tell where exactly this is used -->
-            <term><varname>dist_name=</varname></term>
-
-            <listitem><para>Name of the distribution.
-            </para></listitem>
-        </varlistentry>
-
-
-        <varlistentry>
-            <!-- TODO: We should tell where exactly this is used -->
             <term><varname>dist_release=</varname></term>
 
-            <listitem><para>Release of the distribution.
-            </para></listitem>
-        </varlistentry>
-
-        <varlistentry>
-            <term><varname>dist_codename=</varname></term>
-
-            <listitem><para>Codename of this release. It's the value
-            of DISTRIB_CODENAME in /etc/lsb-release.
+            <listitem><para>Release version of the distribution.
             </para></listitem>
         </varlistentry>
 
@@ -226,31 +201,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </varlistentry>
 
         <varlistentry>
-            <!-- TODO: We should tell where exactly this is used -->
-            <term><varname>iso_publisher=</varname></term>
+            <term><varname>gpgkey=</varname></term>
 
-            <listitem><para>Publisher of the iso.
-            </para></listitem>
-        </varlistentry>
-
-        <varlistentry>
-            <!-- TODO: We should tell where exactly this is used -->
-            <term><varname>iso_app_id=</varname></term>
-
-            <listitem><para>Application ID of the iso.
-            </para></listitem>
-        </varlistentry>
-
-        <varlistentry>
-            <term><varname>initsys=</varname></term>
-
-            <listitem><para>Takes <option>systemd</option> (the default)
-            or <option>openrc</option>. Selecting and option will change
-            how the hostname, the displaymanager and services will be configured.
-            For services also controls if buildiso will use enable_systemd and
-            enable_systemd_live or enable_openrc and enable_openrc_live to determine
-            the default services that will be enabled automatically.
-            </para></listitem>
+            <listitem><para>If the gpgkey is supplied, the sfs images on iso will be signed.
+                    If the key is left empty or commented, signing will be skipped.
+                    </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -270,11 +225,36 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <para>The following options are understood:</para>
 
         <variablelist>
-
             <varlistentry>
                 <term><varname>account=</varname></term>
 
                 <listitem><para>Default user to be used for upload.
+                </para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><varname>ssh_agent=true|false</varname></term>
+
+                <listitem><para>When set true, the ssh-agent will be used to store
+                the passphrase.
+                </para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><varname>alt_storage=true|false</varname></term>
+
+                <listitem><para>When set true deployiso will upload to OSDN's
+                alternative server. Under some circumstances and depending on your
+                location the connection might be more stable.
+                </para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><varname>project=</varname></term>
+
+                <listitem><para>Default OSDN project name to be used for upload.
+                    If unset, 'manjaro' or 'manjaro-community' will be determined
+                    automatically based on profile.
                 </para></listitem>
             </varlistentry>
 
@@ -285,6 +265,20 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
                 </para></listitem>
             </varlistentry>
 
+             <varlistentry>
+            <term><varname>tracker_url=</varname></term>
+
+            <listitem><para>Default tracker announce for the torrent.
+                    The tracker url can also contain comma separated urls.
+                    </para></listitem>
+            </varlistentry>
+
+            <varlistentry>
+                <term><varname>piece_size=</varname></term>
+
+                <listitem><para>Default priece size for the torrent in 2^n.
+                        </para></listitem>
+            </varlistentry>
 
         </variablelist>
     </refsect1>
